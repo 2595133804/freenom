@@ -9,8 +9,9 @@
 
 namespace Luolongfei\Lib;
 
+use Luolongfei\App\Exceptions\LlfException;
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception AS MailException;
+use PHPMailer\PHPMailer\Exception as MailException;
 
 class Mail
 {
@@ -48,6 +49,10 @@ class Mail
                 $host = 'smtp.vip.163.com';
                 $secure = 'ssl';
                 $port = 465;
+            } else if (stripos($username, '@outlook.com') !== false) {
+                $host = 'smtp.office365.com';
+                $secure = 'starttls';
+                $port = 587;
             } else {
                 throw new \Exception('不受支持的邮箱。目前仅支持谷歌邮箱、QQ邮箱以及163邮箱，推荐使用谷歌邮箱。');
             }
@@ -87,7 +92,12 @@ class Mail
             return false;
         }
 
-        self::mail()->addAddress($to ?: config('mail.to'), config('mail.toName', '主人')); // 添加收件人，参数2选填
+        $to = $to ?: config('mail.to');
+        if (!$to) {
+            throw new LlfException(env('ON_GITHUB_ACTIONS') ? 34520011 : 34520012);
+        }
+
+        self::mail()->addAddress($to, config('mail.toName', '主人')); // 添加收件人，参数2选填
         self::mail()->addReplyTo(config('mail.replyTo', 'mybsdc@qq.com'), config('mail.replyToName', '作者')); // 备用回复地址，收到的回复的邮件将被发到此地址
 
         /**
@@ -119,7 +129,7 @@ class Mail
             array_unshift($content, $template);
             $message = call_user_func_array('sprintf', $content);
         } else if (is_string($content)) {
-            $message = sprintf($template, $content);
+            $message = $content;
         } else {
             throw new MailException('邮件内容格式错误，仅支持传入数组或字符串。');
         }
@@ -127,5 +137,7 @@ class Mail
         self::mail()->msgHTML($message, APP_PATH . '/mail');
 
         if (!self::mail()->send()) throw new MailException(self::mail()->ErrorInfo);
+
+        return true;
     }
 }
